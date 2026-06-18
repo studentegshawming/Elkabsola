@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام الطلاب المتكامل</title>
+
+<style>
+* { box-sizing: border-box; }
+body { 
+  font-family: 'Tahoma', Arial; 
+  direction: rtl; 
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 500px;
+  margin: auto;
+  background: white;
+  padding: 25px;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+h2, h3 {
+  text-align: center;
+  color: #333;
+  margin-top: 0;
+}
+
+h2 { 
+  color: #667eea;
+  border-bottom: 3px solid #667eea;
+  padding-bottom: 15px;
+}
+
+input, select, button {
+  width: 100%;
+  padding: 12px 15px;
+  margin: 8px 0;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+button {
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.3s;
+}
+
+.green { background: linear-gradient(135deg,#11998e,#38ef7d); }
+.red { background: linear-gradient(135deg,#cb2d3e,#ef473a); }
+.blue { background: linear-gradient(135deg,#667eea,#764ba2); }
+.orange { background: linear-gradient(135deg,#f093fb,#f5576c); }
+.gray { background: linear-gradient(135deg,#757F9A,#D7DDE8); color:#333; }
+
+.page { display:none; }
+.show { display:block; }
+
+.card {
+  background:#f8f9fa;
+  padding:15px;
+  margin:10px 0;
+  border-radius:12px;
+  border-right:4px solid #667eea;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>🎓 نظام الطلاب</h2>
+
+<button class="blue" onclick="go('registerPage')">تسجيل طالب</button>
+<button class="orange" onclick="adminLogin()">لوحة الأدمن</button>
+
+<!-- تسجيل -->
+<div id="registerPage" class="page show">
+  <h3>تسجيل طالب</h3>
+
+  <input id="name" placeholder="الاسم">
+  <input id="phone" placeholder="الواتساب">
+
+  <select id="branch">
+    <option>علمي علوم</option>
+    <option>علمي رياضة</option>
+    <option>أدبي</option>
+  </select>
+
+  <button class="green" onclick="register()">تسجيل</button>
+</div>
+
+<!-- مواد -->
+<div id="subjectsPage" class="page">
+  <h3>المواد</h3>
+  <div id="subjectsList"></div>
+</div>
+
+<!-- أدمن -->
+<div id="adminPage" class="page">
+  <h3>لوحة الأدمن</h3>
+  <div id="requestsList"></div>
+</div>
+
+</div>
+
+<script>
+
+const ADMIN_PASSWORD = "MNY#M502";
+
+function go(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('show'));
+  document.getElementById(page).classList.add('show');
+
+  if(page==="adminPage") loadRequests();
+}
+
+function adminLogin(){
+  let pass = prompt("كلمة المرور:");
+  if(pass===ADMIN_PASSWORD){
+    go("adminPage");
+  } else {
+    alert("خطأ");
+  }
+}
+
+function register(){
+
+  let student = {
+    name: name.value,
+    phone: phone.value,
+    branch: branch.value
+  };
+
+  localStorage.setItem("currentStudent", JSON.stringify(student));
+
+  let students = JSON.parse(localStorage.getItem("students")||"[]");
+  students.push(student);
+  localStorage.setItem("students", JSON.stringify(students));
+
+  showSubjects(student);
+}
+
+function showSubjects(student){
+
+  go("subjectsPage");
+
+  let subjects = {
+    "علمي علوم":["أحياء","كيمياء","فيزياء","إنجليزي","رياضة","العربي"],
+    "علمي رياضة":["رياضة بحتة","رياضة تطبيقية","فيزياء","كيمياء","إنجليزي","العربي"],
+    "أدبي":["تاريخ","جغرافيا","فلسفة","علم نفس","إنجليزي","العربي"]
+  };
+
+  let list = subjects[student.branch];
+
+  let html = "";
+
+  list.forEach(s=>{
+    let price = s==="العربي"?"مجاني":"450 جنيه";
+
+    html += `
+      <div class="card">
+        <b>${s}</b><br>
+        ${price}<br>
+        <button class="green" onclick="sendRequest('${s}')">اشتراك</button>
+      </div>
+    `;
+  });
+
+  subjectsList.innerHTML = html;
+}
+
+function sendRequest(subject){
+
+  let student = JSON.parse(localStorage.getItem("currentStudent"));
+
+  let req = JSON.parse(localStorage.getItem("requests")||"[]");
+
+  req.push({
+    student: student.name,
+    phone: student.phone,
+    subject: subject,
+    status: "pending"
+  });
+
+  localStorage.setItem("requests", JSON.stringify(req));
+
+  alert("تم إرسال الطلب");
+}
+
+function loadRequests(){
+
+  let req = JSON.parse(localStorage.getItem("requests")||"[]");
+
+  let html = "";
+
+  req.forEach((r,i)=>{
+    html += `
+      <div class="card">
+        ${r.student} - ${r.subject}<br>
+        الحالة: ${r.status}<br>
+        <button class="green" onclick="accept(${i})">قبول</button>
+        <button class="red" onclick="reject(${i})">رفض</button>
+      </div>
+    `;
+  });
+
+  requestsList.innerHTML = html;
+}
+
+function accept(i){
+  let req = JSON.parse(localStorage.getItem("requests"));
+  req[i].status="accepted";
+  localStorage.setItem("requests",JSON.stringify(req));
+  loadRequests();
+}
+
+function reject(i){
+  let req = JSON.parse(localStorage.getItem("requests"));
+  req[i].status="rejected";
+  localStorage.setItem("requests",JSON.stringify(req));
+  loadRequests();
+}
+
+</script>
+
+</body>
+</html>
