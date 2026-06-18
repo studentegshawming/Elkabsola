@@ -238,6 +238,631 @@ button:active {
 .pulse {
   animation: pulse 0.5s ease-in-out;
 }
+
+.start-number {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+.start-number span {
+  font-size: 28px;
+  font-weight: bold;
+  display: block;
+  margin-top: 5px;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h2>🎓 نظام الطلاب المتكامل</h2>
+
+<!-- الأزرار الرئيسية -->
+<div class="btn-group">
+  <button class="blue" onclick="go('loginPage')">🔑 تسجيل دخول</button>
+  <button class="orange" onclick="openAdminLogin()">🔐 لوحة الأدمن</button>
+</div>
+
+<!-- إحصائيات سريعة -->
+<div id="quickStats" class="stats">
+  <div>
+    <div class="number" id="totalStudents">0</div>
+    <div class="label">إجمالي الطلاب</div>
+  </div>
+  <div>
+    <div class="number" id="pendingRequests">0</div>
+    <div class="label">طلبات معلقة</div>
+  </div>
+  <div>
+    <div class="number" id="acceptedRequests">0</div>
+    <div class="label">طلبات مقبولة</div>
+  </div>
+</div>
+
+<!-- ====== صفحة تسجيل الدخول ====== -->
+<div id="loginPage" class="page show">
+  <h3>🔑 تسجيل دخول الطالب</h3>
+  
+  <div class="start-number">
+    📊 عدد الطلاب المسجلين
+    <span id="displayStudentCount">0</span>
+  </div>
+  
+  <input id="loginPhone" placeholder="📱 رقم الهاتف">
+  <input id="loginPassword" type="password" placeholder="🔒 كلمة المرور">
+  
+  <button class="blue" onclick="studentLogin()">🚪 دخول</button>
+  
+  <hr style="margin:20px 0;">
+  
+  <p style="text-align:center;color:#666;">ليس لديك حساب؟</p>
+  <button class="green" onclick="go('registerPage')">📝 تسجيل جديد</button>
+</div>
+
+<!-- ====== صفحة التسجيل ====== -->
+<div id="registerPage" class="page">
+  <h3>📋 تسجيل طالب جديد</h3>
+  
+  <div class="start-number">
+    🆚 سيتم إعطاؤك رقم طالب تلقائي
+    <span>يبدأ من 296</span>
+  </div>
+  
+  <input id="regName" placeholder="👤 الاسم الكامل">
+  <input id="regPhone" placeholder="📱 رقم الهاتف">
+  <input id="regPassword" type="password" placeholder="🔒 كلمة المرور (4 أرقام على الأقل)">
+  <input id="regConfirmPassword" type="password" placeholder="🔒 تأكيد كلمة المرور">
+  
+  <select id="regBranch">
+    <option value="علمي علوم">🔬 علمي علوم</option>
+    <option value="علمي رياضة">📐 علمي رياضة</option>
+    <option value="أدبي">📖 أدبي</option>
+  </select>
+  
+  <button class="green" onclick="registerStudent()">✅ تسجيل</button>
+  
+  <button class="gray" onclick="go('loginPage')">🔙 عندي حساب</button>
+</div>
+
+<!-- ====== صفحة المواد ====== -->
+<div id="subjectsPage" class="page">
+  <h3>📚 المواد الدراسية</h3>
+  
+  <div id="studentInfo" style="background:#f0f0f0;padding:10px;border-radius:10px;margin-bottom:15px;text-align:center;"></div>
+  
+  <div id="subjectsList"></div>
+  
+  <div class="btn-group">
+    <button class="gray" onclick="logout()">🚪 تسجيل خروج</button>
+  </div>
+</div>
+
+<!-- ====== صفحة الأدمن ====== -->
+<div id="adminPage" class="page">
+  <h3>👑 لوحة التحكم</h3>
+  
+  <div class="btn-group">
+    <button class="red" onclick="clearAllData()">🗑️ حذف الكل</button>
+    <button class="gray" onclick="go('loginPage')">🔙 العودة</button>
+  </div>
+  
+  <!-- تبويبات الأدمن -->
+  <div class="tab-buttons">
+    <button class="blue" onclick="showAdminTab('students')">👥 الطلاب</button>
+    <button class="orange" onclick="showAdminTab('requests')">📩 الطلبات</button>
+  </div>
+  
+  <div id="adminStudents" class="tab-content active">
+    <h4>👥 قائمة الطلاب</h4>
+    <div id="studentsList"></div>
+  </div>
+  
+  <div id="adminRequests" class="tab-content">
+    <h4>📩 طلبات الاشتراك</h4>
+    <div id="requestsList"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+
+const ADMIN_PASSWORD = "MNY#M502";
+const START_ID = 296; // رقم البداية
+
+// ====== الحصول على الرقم التالي ======
+function getNextStudentId() {
+  const students = JSON.parse(localStorage.getItem("students") || "[]");
+  if (students.length === 0) {
+    return START_ID;
+  }
+  // البحث عن أكبر رقم
+  let maxId = START_ID - 1;
+  students.forEach(s => {
+    const numId = parseInt(s.id);
+    if (numId > maxId) maxId = numId;
+  });
+  return maxId + 1;
+}
+
+// ====== التنقل بين الصفحات ======
+function go(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('show'));
+  document.getElementById(page).classList.add('show');
+  
+  if (page === "adminPage") {
+    loadAllData();
+  }
+  
+  if (page === "subjectsPage") {
+    showStudentSubjects();
+  }
+  
+  updateStats();
+  updateDisplayCount();
+}
+
+// ====== تحديث الإحصائيات ======
+function updateStats() {
+  try {
+    const students = JSON.parse(localStorage.getItem("students") || "[]");
+    const requests = JSON.parse(localStorage.getItem("requests") || "[]");
+    const pending = requests.filter(r => r.status === "pending").length;
+    const accepted = requests.filter(r => r.status === "accepted").length;
+    
+    document.getElementById("totalStudents").textContent = students.length;
+    document.getElementById("pendingRequests").textContent = pending;
+    document.getElementById("acceptedRequests").textContent = accepted;
+  } catch(e) {}
+}
+
+// ====== عرض عدد الطلاب ======
+function updateDisplayCount() {
+  const students = JSON.parse(localStorage.getItem("students") || "[]");
+  const display = document.getElementById("displayStudentCount");
+  if (display) {
+    display.textContent = students.length + " طالب";
+  }
+}
+
+// ====== تسجيل طالب جديد ======
+function registerStudent() {
+  const name = document.getElementById("regName").value.trim();
+  const phone = document.getElementById("regPhone").value.trim();
+  const password = document.getElementById("regPassword").value;
+  const confirmPassword = document.getElementById("regConfirmPassword").value;
+  const branch = document.getElementById("regBranch").value;
+  
+  if (!name || !phone || !password || !confirmPassword) {
+    showNotification("⚠️ الرجاء ملء جميع البيانات", "error");
+    return;
+  }
+  
+  if (!/^[0-9]+$/.test(phone)) {
+    showNotification("⚠️ رقم الهاتف أرقام فقط", "error");
+    return;
+  }
+  
+  if (password.length < 4) {
+    showNotification("⚠️ كلمة المرور 4 أرقام على الأقل", "error");
+    return;
+  }
+  
+  if (password !== confirmPassword) {
+    showNotification("⚠️ كلمة المرور غير متطابقة", "error");
+    return;
+  }
+  
+  let students = JSON.parse(localStorage.getItem("students") || "[]");
+  if (students.some(s => s.phone === phone)) {
+    showNotification("⚠️ رقم الهاتف مسجل مسبقاً", "error");
+    return;
+  }
+  
+  // الحصول على الرقم التالي
+  const studentId = getNextStudentId();
+  
+  const student = {
+    id: String(studentId),
+    name: name,
+    phone: phone,
+    password: password,
+    branch: branch,
+    date: new Date().toLocaleString()
+  };
+  
+  students.push(student);
+  localStorage.setItem("students", JSON.stringify(students));
+  
+  document.getElementById("regName").value = "";
+  document.getElementById("regPhone").value = "";
+  document.getElementById("regPassword").value = "";
+  document.getElementById("regConfirmPassword").value = "";
+  
+  showNotification(`✅ تم تسجيل ${name} بنجاح - رقمك: ${studentId}`, "success");
+  
+  loginStudent(phone, password);
+}
+
+// ====== تسجيل دخول الطالب ======
+function studentLogin() {
+  const phone = document.getElementById("loginPhone").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  
+  if (!phone || !password) {
+    showNotification("⚠️ الرجاء إدخال رقم الهاتف وكلمة المرور", "error");
+    return;
+  }
+  
+  loginStudent(phone, password);
+}
+
+function loginStudent(phone, password) {
+  const students = JSON.parse(localStorage.getItem("students") || "[]");
+  const student = students.find(s => s.phone === phone && s.password === password);
+  
+  if (!student) {
+    showNotification("❌ رقم الهاتف أو كلمة المرور خطأ", "error");
+    return;
+  }
+  
+  localStorage.setItem("currentStudent", JSON.stringify(student));
+  document.getElementById("loginPhone").value = "";
+  document.getElementById("loginPassword").value = "";
+  
+  showNotification(`✅ مرحباً ${student.name}`, "success");
+  go('subjectsPage');
+}
+
+// ====== عرض مواد الطالب ======
+function showStudentSubjects() {
+  try {
+    const studentData = localStorage.getItem("currentStudent");
+    if (!studentData) {
+      showNotification("⚠️ الرجاء تسجيل الدخول أولاً", "error");
+      go('loginPage');
+      return;
+    }
+    
+    const student = JSON.parse(studentData);
+    
+    document.getElementById("studentInfo").innerHTML = `
+      🆔 <span class="student-id">${student.id}</span> |
+      👤 <strong>${student.name}</strong> | 
+      📱 ${student.phone} | 
+      📚 ${student.branch}
+    `;
+    
+    const subjectsMap = {
+      "علمي علوم": ["أحياء", "كيمياء", "فيزياء", "إنجليزي", "رياضة", "العربي"],
+      "علمي رياضة": ["رياضة بحتة", "رياضة تطبيقية", "فيزياء", "كيمياء", "إنجليزي", "العربي"],
+      "أدبي": ["تاريخ", "جغرافيا", "فلسفة", "علم نفس", "إنجليزي", "العربي"]
+    };
+    
+    const subjects = subjectsMap[student.branch] || subjectsMap["علمي علوم"];
+    let requests = JSON.parse(localStorage.getItem("requests") || "[]");
+    
+    let html = "";
+    subjects.forEach(sub => {
+      const price = sub === "العربي" ? "مجاني" : "450 جنيه";
+      const existing = requests.find(r => r.studentId === student.id && r.subject === sub);
+      
+      let statusHtml = "";
+      let disabled = "";
+      let successMessage = "";
+      
+      if (existing) {
+        if (existing.status === "pending") {
+          statusHtml = `<span class="status-badge status-pending">⏳ قيد المراجعة</span>`;
+          disabled = "disabled style='opacity:0.5;'";
+        } else if (existing.status === "accepted") {
+          statusHtml = `<span class="status-badge status-accepted">✅ مقبول</span>`;
+          disabled = "disabled style='opacity:0.5;'";
+          successMessage = `
+            <div class="success-message pulse">
+              ✅ تم الاشتراك بنجاح في مادة ${sub}
+            </div>
+          `;
+        } else if (existing.status === "rejected") {
+          statusHtml = `<span class="status-badge status-rejected">❌ مرفوض</span>`;
+        }
+      }
+      
+      html += `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <b>${sub}</b>
+            <span class="price">${price}</span>
+          </div>
+          ${successMessage}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            ${statusHtml}
+            <button class="green" onclick="sendRequest('${sub}')" ${disabled}>📩 اشتراك</button>
+          </div>
+        </div>
+      `;
+    });
+    document.getElementById("subjectsList").innerHTML = html;
+  } catch(e) { showNotification("⚠️ حدث خطأ", "error"); }
+}
+
+// ====== إرسال طلب ======
+function sendRequest(subject) {
+  try {
+    const studentData = localStorage.getItem("currentStudent");
+    if (!studentData) {
+      showNotification("⚠️ الرجاء تسجيل الدخول أولاً", "error");
+      go('loginPage');
+      return;
+    }
+    
+    const student = JSON.parse(studentData);
+    let requests = JSON.parse(localStorage.getItem("requests") || "[]");
+    
+    const exists = requests.some(r => 
+      r.studentId === student.id && r.subject === subject && 
+      (r.status === "pending" || r.status === "accepted")
+    );
+    
+    if (exists) {
+      showNotification("⚠️ لديك طلب سابق", "error");
+      return;
+    }
+    
+    requests.push({
+      studentId: student.id,
+      studentName: student.name,
+      studentPhone: student.phone,
+      subject: subject,
+      status: "pending",
+      time: new Date().toLocaleString()
+    });
+    
+    localStorage.setItem("requests", JSON.stringify(requests));
+    showNotification(`✅ تم إرسال طلب ${subject}`, "success");
+    showStudentSubjects();
+    updateStats();
+  } catch(e) { showNotification("⚠️ حدث خطأ", "error"); }
+}
+
+// ====== تسجيل خروج ======
+function logout() {
+  localStorage.removeItem("currentStudent");
+  showNotification("🚪 تم تسجيل الخروج", "warning");
+  go('loginPage');
+}
+
+// ====== دخول الأدمن ======
+function openAdminLogin() {
+  let pass = prompt("🔑 أدخل كلمة المرور:");
+  if (pass === ADMIN_PASSWORD) {
+    go("adminPage");
+  } else if (pass !== null) {
+    showNotification("❌ كلمة المرور خطأ", "error");
+  }
+}
+
+// ====== عرض تبويبات الأدمن ======
+function showAdminTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  if (tab === 'students') {
+    document.getElementById('adminStudents').classList.add('active');
+    loadStudentsList();
+  } else {
+    document.getElementById('adminRequests').classList.add('active');
+    loadRequestsList();
+  }
+}
+
+// ====== تحميل كل البيانات ======
+function loadAllData() {
+  loadStudentsList();
+  loadRequestsList();
+}
+
+// ====== تحميل قائمة الطلاب للأدمن ======
+function loadStudentsList() {
+  const list = document.getElementById("studentsList");
+  const students = JSON.parse(localStorage.getItem("students") || "[]");
+  
+  if (students.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:40px;color:#999;">👥 لا يوجد طلاب</div>`;
+    return;
+  }
+  
+  let html = `<p style="color:#666;">📌 عدد الطلاب: ${students.length}</p>`;
+  
+  // ترتيب تنازلي حسب الرقم
+  const sorted = [...students].sort((a, b) => parseInt(b.id) - parseInt(a.id));
+  
+  sorted.forEach((s, index) => {
+    const requests = JSON.parse(localStorage.getItem("requests") || "[]");
+    const acceptedCount = requests.filter(r => r.studentId === s.id && r.status === "accepted").length;
+    
+    html += `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+          <div>
+            <b>👤 ${s.name}</b><br>
+            <span style="color:#667eea;font-size:16px;font-weight:bold;">🆔 ${s.id}</span><br>
+            <span style="color:#666;font-size:14px;">📱 ${s.phone}</span><br>
+            <span style="color:#666;font-size:14px;">📚 ${s.branch}</span><br>
+            <span style="color:#28a745;font-size:14px;">✅ مواد مقبولة: ${acceptedCount}</span><br>
+            <span style="color:#999;font-size:12px;">📅 ${s.date}</span>
+          </div>
+          <button class="red" onclick="deleteStudent('${s.id}')" style="width:auto;padding:5px 15px;font-size:12px;">🗑️</button>
+        </div>
+      </div>
+    `;
+  });
+  list.innerHTML = html;
+}
+
+// ====== تحميل طلبات الأدمن ======
+function loadRequestsList() {
+  const list = document.getElementById("requestsList");
+  let requests = JSON.parse(localStorage.getItem("requests") || "[]");
+  
+  if (requests.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:40px;color:#999;">📩 لا يوجد طلبات</div>`;
+    return;
+  }
+  
+  const sorted = [...requests].reverse();
+  list.innerHTML = `<p style="color:#666;">📌 عدد الطلبات: ${requests.length}</p>`;
+  
+  sorted.forEach((r, index) => {
+    const originalIndex = requests.length - 1 - index;
+    const statusClass = r.status === "pending" ? "status-pending" : 
+                       r.status === "accepted" ? "status-accepted" : "status-rejected";
+    const statusText = r.status === "pending" ? "⏳ معلق" : 
+                       r.status === "accepted" ? "✅ مقبول" : "❌ مرفوض";
+    
+    const buttons = r.status === "pending" ? `
+      <div class="btn-group" style="margin-top:10px;">
+        <button class="green" onclick="acceptRequest(${originalIndex})">✅ قبول</button>
+        <button class="red" onclick="rejectRequest(${originalIndex})">❌ رفض</button>
+      </div>
+    ` : `<span class="status-badge ${statusClass}">${statusText}</span>`;
+    
+    list.innerHTML += `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+          <div>
+            <b>👤 ${r.studentName}</b><br  margin: 5px 0;
+}
+
+.card .status-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.status-pending { background: #ffc107; color: #333; }
+.status-accepted { background: #28a745; color: white; }
+.status-rejected { background: #dc3545; color: white; }
+
+.page { display: none; }
+.show { display: block; }
+
+#subjectsList, #requestsList, #studentsList {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stats {
+  display: flex;
+  justify-content: space-around;
+  background: #f0f0f0;
+  padding: 15px;
+  border-radius: 12px;
+  margin: 15px 0;
+  flex-wrap: wrap;
+}
+
+.stats div {
+  text-align: center;
+  flex: 1;
+  min-width: 80px;
+}
+
+.stats .number {
+  font-size: 24px;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.stats .label {
+  font-size: 12px;
+  color: #666;
+}
+
+.notification {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 15px 30px;
+  border-radius: 10px;
+  z-index: 1000;
+  animation: slideDown 0.5s;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translate(-50%, -20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (max-width: 600px) {
+  .container { padding: 15px; }
+  .btn-group { flex-direction: column; }
+  .stats { flex-direction: column; gap: 10px; }
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 5px;
+  margin: 10px 0;
+}
+
+.tab-buttons button {
+  flex: 1;
+  font-size: 14px;
+  padding: 10px;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.student-id {
+  background: #667eea;
+  color: white;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.success-message {
+  background: #d4edda;
+  color: #155724;
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid #28a745;
+  text-align: center;
+  font-weight: bold;
+  animation: slideIn 0.5s;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.pulse {
+  animation: pulse 0.5s ease-in-out;
+}
 </style>
 </head>
 <body>
